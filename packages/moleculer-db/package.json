@@ -1,6 +1,6 @@
 {
   "name": "moleculer-db",
-  "version": "0.7.6",
+  "version": "0.8.2",
   "description": "Moleculer service to store entities in database",
   "main": "index.js",
   "scripts": {
@@ -18,27 +18,27 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git@github.com:moleculerjs/moleculer-db.git"
+    "url": "https://github.com/moleculerjs/moleculer-db.git"
   },
   "homepage": "https://github.com/moleculerjs/moleculer-db/tree/master/packages/moleculer-db#readme",
   "author": "MoleculerJS",
   "license": "MIT",
   "peerDependencies": {
-    "moleculer": "^0.12.0 || ^0.13.0"
+    "moleculer": "^0.12.0 || ^0.13.0 || ^0.14.0"
   },
   "devDependencies": {
-    "benchmarkify": "2.1.0",
-    "chalk": "2.4.1",
-    "coveralls": "3.0.2",
-    "eslint": "5.7.0",
-    "fakerator": "0.3.0",
-    "jest": "23.6.0",
-    "jest-cli": "23.6.0",
-    "lolex": "3.0.0",
-    "moleculer": "0.13.3",
-    "moleculer-docgen": "0.2.1",
-    "nodemon": "1.18.4",
-    "npm-check": "5.9.0"
+    "benchmarkify": "^2.1.1",
+    "chalk": "^2.4.2",
+    "coveralls": "^3.0.5",
+    "eslint": "^6.0.1",
+    "fakerator": "^0.3.0",
+    "jest": "^24.8.0",
+    "jest-cli": "^24.8.0",
+    "lolex": "^4.1.0",
+    "moleculer": "^0.13.9",
+    "moleculer-docgen": "^0.2.1",
+    "nodemon": "^1.19.1",
+    "npm-check": "^5.9.0"
   },
   "jest": {
     "testEnvironment": "node",
@@ -48,11 +48,11 @@
     ]
   },
   "engines": {
-    "node": ">= 6.x.x"
+    "node": ">= 8.x.x"
   },
   "dependencies": {
-    "bluebird": "3.5.2",
-    "lodash": "4.17.11",
-    "nedb": "1.8.0"
+    "bluebird": "^3.5.5",
+    "lodash": "^4.17.14",
+    "nedb": "^1.8.0"
   }
 }

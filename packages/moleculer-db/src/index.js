@@ -1,6 +1,6 @@
 /*
  * moleculer-db
- * Copyright (c) 2017 MoleculerJS (https://github.com/moleculerjs/moleculer-db)
+ * Copyright (c) 2019 MoleculerJS (https://github.com/moleculerjs/moleculer-db)
  * MIT Licensed
  */
 
@@ -11,6 +11,7 @@ const Promise = require("bluebird");
 const { MoleculerClientError, ValidationError } = require("moleculer").Errors;
 const { EntityNotFoundError } = require("./errors");
 const MemoryAdapter = require("./memory-adapter");
+const pkg = require("../package.json");
 
 /**
  * Service mixin to access database entities
@@ -21,6 +22,15 @@ const MemoryAdapter = require("./memory-adapter");
 module.exports = {
 	// Must overwrite it
 	name: "",
+
+	// Service's metadata
+	metadata: {
+		$category: "database",
+		$official: true,
+		$name: pkg.name,
+		$version: pkg.version,
+		$repo: pkg.repository ? pkg.repository.url : null,
+	},
 
 	// Store adapter (NeDB adapter is the default)
 	adapter: null,
@@ -97,10 +107,7 @@ module.exports = {
 			},
 			handler(ctx) {
 				let params = this.sanitizeParams(ctx, ctx.params);
-
-				return this.adapter.find(params)
-					.then(docs => this.transformDocuments(ctx, params, docs));
-
+				return this._find(ctx, params);
 			}
 		},
 
@@ -130,14 +137,7 @@ module.exports = {
 			},
 			handler(ctx) {
 				let params = this.sanitizeParams(ctx, ctx.params);
-
-				// Remove pagination params
-				if (params && params.limit)
-					params.limit = null;
-				if (params && params.offset)
-					params.offset = null;
-
-				return this.adapter.count(params);
+				return this._count(ctx, params);
 			}
 		},
 
@@ -162,6 +162,7 @@ module.exports = {
 			cache: {
 				keys: ["populate", "fields", "page", "pageSize", "sort", "search", "searchFields", "query"]
 			},
+			rest: "GET /",
 			params: {
 				populate: [
 					{ type: "string", optional: true },
@@ -183,38 +184,7 @@ module.exports = {
 			},
 			handler(ctx) {
 				let params = this.sanitizeParams(ctx, ctx.params);
-
-				let countParams = Object.assign({}, params);
-				// Remove pagination params
-				if (countParams && countParams.limit)
-					countParams.limit = null;
-				if (countParams && countParams.offset)
-					countParams.offset = null;
-
-
-				return Promise.all([
-					// Get rows
-					this.adapter.find(params),
-
-					// Get count of all rows
-					this.adapter.count(countParams)
-				]).then(res => {
-					return this.transformDocuments(ctx, params, res[0])
-						.then(docs => {
-							return {
-								// Rows
-								rows: docs,
-								// Total rows
-								total: res[1],
-								// Page
-								page: params.page,
-								// Page size
-								pageSize: params.pageSize,
-								// Total pages
-								totalPages: Math.floor((res[1] + params.pageSize - 1) / params.pageSize)
-							};
-						});
-				});
+				return this._list(ctx, params);
 			}
 		},
 
@@ -223,19 +193,15 @@ module.exports = {
 		 *
 		 * @actions
 		 *
+		 * @param {Object?} params - Entity to save.
+		 *
 		 * @returns {Object} Saved entity.
 		 */
 		create: {
+			rest: "POST /",
 			handler(ctx) {
-				let entity = ctx.params;
-
-				return this.validateEntity(entity)
-					// Apply idField
-					.then(entity => this.adapter.beforeSaveTransformID(entity, this.settings.idField))
-					.then(entity => this.adapter.insert(entity))
-					.then(doc => this.transformDocuments(ctx, {}, doc))
-					.then(json => this.entityChanged("created", json, ctx).then(() => json));
-
+				let params = ctx.params;
+				return this._create(ctx, params);
 			}
 		},
 
@@ -256,29 +222,7 @@ module.exports = {
 			},
 			handler(ctx) {
 				let params = this.sanitizeParams(ctx, ctx.params);
-
-				return Promise.resolve()
-					.then(() => {
-						if (Array.isArray(params.entities)) {
-							return this.validateEntity(params.entities)
-								// Apply idField
-								.then(entities => {
-									if (this.settings.idField === "_id") return entities;
-
-									return entities.map(entity => this.adapter.beforeSaveTransformID(entity, this.settings.idField));
-									
-								})
-								.then(entities => this.adapter.insertMany(entities));
-						} else if (params.entity) {
-							return this.validateEntity(params.entity)
-								// Apply idField
-								.then(entity => this.adapter.beforeSaveTransformID(entity, this.settings.idField))
-								.then(entity => this.adapter.insert(entity));
-						}
-						return Promise.reject(new MoleculerClientError("Invalid request! The 'params' must contain 'entity' or 'entities'!", 400));
-					})
-					.then(docs => this.transformDocuments(ctx, params, docs))
-					.then(json => this.entityChanged("created", json, ctx).then(() => json));
+				return this._insert(ctx, params);
 			}
 		},
 
@@ -301,6 +245,7 @@ module.exports = {
 			cache: {
 				keys: ["id", "populate", "fields", "mapping"]
 			},
+			rest: "GET /:id",
 			params: {
 				id: [
 					{ type: "string" },
@@ -319,30 +264,7 @@ module.exports = {
 			},
 			handler(ctx) {
 				let params = this.sanitizeParams(ctx, ctx.params);
-				let id = params.id;
-
-				let origDoc;
-				return this.getById(id, true)
-					.then(doc => {
-						if (!doc)
-							return Promise.reject(new EntityNotFoundError(id));
-
-						origDoc = doc;
-						return this.transformDocuments(ctx, params, doc);
-					})
-
-					.then(json => {
-						if (_.isArray(json) && params.mapping === true) {
-							let res = {};
-							json.forEach((doc, i) => {
-								const id = origDoc[i][this.settings.idField];
-								res[id] = doc;
-							});
-
-							return res;
-						}
-						return json;
-					});
+				return this._get(ctx, params);
 
 			}
 		},
@@ -353,32 +275,17 @@ module.exports = {
 		 *
 		 * @actions
 		 *
+		 * @param {Object?} params - Entity to update.
+		 *
 		 * @returns {Object} Updated entity.
 		 *
 		 * @throws {EntityNotFoundError} - 404 Entity not found
 		 */
 		update: {
+			rest: "PUT /:id",
 			handler(ctx) {
-				let id;
-				let sets = {};
-
-				// Convert fields from params to "$set" update object
-				Object.keys(ctx.params).forEach(prop => {
-					if (prop == "id" || prop == this.settings.idField)
-						id = this.decodeID(ctx.params[prop]);
-					else
-						sets[prop] = ctx.params[prop];
-				});
-
-				return this.adapter.updateById(id, { "$set": sets })
-					.then(doc => {
-						if (!doc)
-							return Promise.reject(new EntityNotFoundError(id));
-
-						return this.transformDocuments(ctx, ctx.params, doc)
-							.then(json => this.entityChanged("updated", json, ctx).then(() => json));
-					});
-
+				let params = ctx.params;
+				return this._update(ctx, params);
 			}
 		},
 
@@ -393,22 +300,13 @@ module.exports = {
 		 * @throws {EntityNotFoundError} - 404 Entity not found
 		 */
 		remove: {
+			rest: "DELETE /:id",
 			params: {
 				id: { type: "any" }
 			},
 			handler(ctx) {
 				let params = this.sanitizeParams(ctx, ctx.params);
-				const id = this.decodeID(params.id);
-
-				return this.adapter.removeById(id)
-					.then(doc => {
-						if (!doc)
-							return Promise.reject(new EntityNotFoundError(params.id));
-
-						return this.transformDocuments(ctx, params, doc)
-							.then(json => this.entityChanged("removed", json, ctx).then(() => json));
-					});
-
+				return this._remove(ctx, params);
 			}
 		}
 	},
@@ -542,9 +440,9 @@ module.exports = {
 		 * @returns {Promise}
 		 */
 		clearCache() {
-			this.broker.broadcast(`cache.clean.${this.name}`);
+			this.broker.broadcast(`cache.clean.${this.fullName}`);
 			if (this.broker.cacher)
-				this.broker.cacher.clean(`${this.name}.*`);
+				return this.broker.cacher.clean(`${this.fullName}.*`);
 			return Promise.resolve();
 		},
 
@@ -562,7 +460,7 @@ module.exports = {
 					isDoc = true;
 					docs = [docs];
 				}
-				else 
+				else
 					return Promise.resolve(docs);
 			}
 
@@ -676,7 +574,7 @@ module.exports = {
 			if (!this.settings.populates || !Array.isArray(populateFields) || populateFields.length == 0)
 				return Promise.resolve(docs);
 
-			if (docs == null || !_.isObject(docs) || !Array.isArray(docs))
+			if (docs == null || !_.isObject(docs) && !Array.isArray(docs))
 				return Promise.resolve(docs);
 
 			let promises = [];
@@ -768,6 +666,241 @@ module.exports = {
 		 */
 		decodeID(id) {
 			return id;
+		},
+
+		/**
+		 * Find entities by query.
+		 *
+		 * @methods
+		 * @cached
+		 *
+		 * @param {Array<String>?} populate - Populated fields.
+		 * @param {Array<String>?} fields - Fields filter.
+		 * @param {Number} limit - Max count of rows.
+		 * @param {Number} offset - Count of skipped rows.
+		 * @param {String} sort - Sorted fields.
+		 * @param {String} search - Search text.
+		 * @param {String} searchFields - Fields for searching.
+		 * @param {Object} query - Query object. Passes to adapter.
+		 *
+		 * @returns {Array<Object>} List of found entities.
+		 */
+		_find(ctx, params) {
+			return this.adapter.find(params)
+				.then(docs => this.transformDocuments(ctx, params, docs));
+		},
+
+		/**
+		 * Get count of entities by query.
+		 *
+		 * @methods
+		 * @cached
+		 *
+		 * @param {String} search - Search text.
+		 * @param {String} searchFields - Fields list for searching.
+		 * @param {Object} query - Query object. Passes to adapter.
+		 *
+		 * @returns {Number} Count of found entities.
+		 */
+		_count(ctx, params) {
+			// Remove pagination params
+			if (params && params.limit)
+				params.limit = null;
+			if (params && params.offset)
+				params.offset = null;
+			return this.adapter.count(params);
+		},
+
+		/**
+		 * List entities by filters and pagination results.
+		 *
+		 * @methods
+		 * @cached
+		 *
+		 * @param {Array<String>?} populate - Populated fields.
+		 * @param {Array<String>?} fields - Fields filter.
+		 * @param {Number} page - Page number.
+		 * @param {Number} pageSize - Size of a page.
+		 * @param {String} sort - Sorted fields.
+		 * @param {String} search - Search text.
+		 * @param {String} searchFields - Fields for searching.
+		 * @param {Object} query - Query object. Passes to adapter.
+		 *
+		 * @returns {Object} List of found entities and count.
+		 */
+		_list(ctx, params) {
+			let countParams = Object.assign({}, params);
+			// Remove pagination params
+			if (countParams && countParams.limit)
+				countParams.limit = null;
+			if (countParams && countParams.offset)
+				countParams.offset = null;
+			return Promise.all([
+				// Get rows
+				this.adapter.find(params),
+				// Get count of all rows
+				this.adapter.count(countParams)
+			]).then(res => {
+				return this.transformDocuments(ctx, params, res[0])
+					.then(docs => {
+						return {
+							// Rows
+							rows: docs,
+							// Total rows
+							total: res[1],
+							// Page
+							page: params.page,
+							// Page size
+							pageSize: params.pageSize,
+							// Total pages
+							totalPages: Math.floor((res[1] + params.pageSize - 1) / params.pageSize)
+						};
+					});
+			});
+		},
+
+		/**
+		 * Create a new entity.
+		 *
+		 * @methods
+		 *
+		 * @param {Object?} params - Entity to save.
+		 *
+		 * @returns {Object} Saved entity.
+		 */
+		_create(ctx, params) {
+			let entity = params;
+			return this.validateEntity(entity)
+				// Apply idField
+				.then(entity => this.adapter.beforeSaveTransformID(entity, this.settings.idField))
+				.then(entity => this.adapter.insert(entity))
+				.then(doc => this.transformDocuments(ctx, {}, doc))
+				.then(json => this.entityChanged("created", json, ctx).then(() => json));
+		},
+
+		/**
+		 * Create many new entities.
+		 *
+		 * @methods
+		 *
+		 * @param {Object?} entity - Entity to save.
+		 * @param {Array.<Object>?} entities - Entities to save.
+		 *
+		 * @returns {Object|Array.<Object>} Saved entity(ies).
+		 */
+		_insert(ctx, params) {
+			return Promise.resolve()
+				.then(() => {
+					if (Array.isArray(params.entities)) {
+						return this.validateEntity(params.entities)
+							// Apply idField
+							.then(entities => {
+								if (this.settings.idField === "_id")
+									return entities;
+								return entities.map(entity => this.adapter.beforeSaveTransformID(entity, this.settings.idField));
+							})
+							.then(entities => this.adapter.insertMany(entities));
+					}
+					else if (params.entity) {
+						return this.validateEntity(params.entity)
+							// Apply idField
+							.then(entity => this.adapter.beforeSaveTransformID(entity, this.settings.idField))
+							.then(entity => this.adapter.insert(entity));
+					}
+					return Promise.reject(new MoleculerClientError("Invalid request! The 'params' must contain 'entity' or 'entities'!", 400));
+				})
+				.then(docs => this.transformDocuments(ctx, params, docs))
+				.then(json => this.entityChanged("created", json, ctx).then(() => json));
+		},
+
+		/**
+		 * Get entity by ID.
+		 *
+		 * @methods
+		 * @cached
+		 *
+		 * @param {any|Array<any>} id - ID(s) of entity.
+		 * @param {Array<String>?} populate - Field list for populate.
+		 * @param {Array<String>?} fields - Fields filter.
+		 * @param {Boolean?} mapping - Convert the returned `Array` to `Object` where the key is the value of `id`.
+		 *
+		 * @returns {Object|Array<Object>} Found entity(ies).
+		 *
+		 * @throws {EntityNotFoundError} - 404 Entity not found
+		 */
+		_get(ctx, params) {
+			let id = params.id;
+			let origDoc;
+			return this.getById(id, true)
+				.then(doc => {
+					if (!doc)
+						return Promise.reject(new EntityNotFoundError(id));
+					origDoc = doc;
+					return this.transformDocuments(ctx, params, doc);
+				})
+				.then(json => {
+					if (_.isArray(json) && params.mapping === true) {
+						let res = {};
+						json.forEach((doc, i) => {
+							const id = origDoc[i][this.settings.idField];
+							res[id] = doc;
+						});
+						return res;
+					}
+					return json;
+				});
+		},
+
+		/**
+		 * Update an entity by ID.
+		 * > After update, clear the cache & call lifecycle events.
+		 *
+		 * @methods
+		 *
+		 * @param {Object?} params - Entity to update.
+		 *
+		 * @returns {Object} Updated entity.
+		 *
+		 * @throws {EntityNotFoundError} - 404 Entity not found
+		 */
+		_update(ctx, params) {
+			let id;
+			let sets = {};
+			// Convert fields from params to "$set" update object
+			Object.keys(params).forEach(prop => {
+				if (prop == "id" || prop == this.settings.idField)
+					id = this.decodeID(params[prop]);
+				else
+					sets[prop] = params[prop];
+			});
+			return this.adapter.updateById(id, { "$set": sets })
+				.then(doc => {
+					if (!doc)
+						return Promise.reject(new EntityNotFoundError(id));
+					return this.transformDocuments(ctx, params, doc)
+						.then(json => this.entityChanged("updated", json, ctx).then(() => json));
+				});
+		},
+
+		/**
+		 * Remove an entity by ID.
+		 *
+		 * @methods
+		 *
+		 * @param {any} id - ID of entity.
+		 * @returns {Number} Count of removed entities.
+		 *
+		 * @throws {EntityNotFoundError} - 404 Entity not found
+		 */
+		_remove(ctx, params) {
+			const id = this.decodeID(params.id);
+			return this.adapter.removeById(id)
+				.then(doc => {
+					if (!doc)
+						return Promise.reject(new EntityNotFoundError(params.id));
+					return this.transformDocuments(ctx, params, doc)
+						.then(json => this.entityChanged("removed", json, ctx).then(() => json));
+				});
 		}
 	},
 

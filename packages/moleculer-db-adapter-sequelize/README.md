@@ -9,7 +9,7 @@ SQL adapter (Postgres, MySQL, SQLite & MSSQL) for Moleculer DB service with [Seq
 # Install
 
 ```bash
-$ npm install moleculer-db-adapter-sequelize --save
+$ npm install moleculer-db-adapter-sequelize sequelize --save
 ```
 
 You have to install additional packages for your database server:
@@ -19,6 +19,9 @@ $ npm install sqlite3 --save
 
 # For MySQL
 $ npm install mysql2 --save
+
+# For MariaDB
+$ npm install mariadb --save
 
 # For PostgreSQL
 $ npm install pg pg-hstore --save
@@ -72,6 +75,18 @@ broker.start()
 .then(() => broker.call("posts.find").then(console.log));
 ```
 
+### Raw queries
+You can reach the `sequelize` instance via `this.adapter.db`. To call [Raw queries](http://docs.sequelizejs.com/manual/raw-queries.html):
+
+```js
+    actions: {
+        findHello2() {
+            return this.adapter.db.query("SELECT * FROM posts WHERE title = 'Hello 2' LIMIT 1")
+                .then(([res, metadata]) => res);
+        }
+    }
+```
+
 ## Options
 Every constructor arguments are passed to the `Sequelize` constructor. Read more about [Sequelize connection](http://docs.sequelizejs.com/manual/installation/getting-started.html).
 
@@ -84,7 +99,7 @@ new SqlAdapter("postgres://user:pass@example.com:5432/dbname");
 ```js
 new SqlAdapter('database', 'username', 'password', {
     host: 'localhost',
-    dialect: 'mysql'|'sqlite'|'postgres'|'mssql',
+    dialect: /* one of 'mysql' | 'mariadb' | 'postgres' | 'mssql' */,
 
     pool: {
         max: 5,

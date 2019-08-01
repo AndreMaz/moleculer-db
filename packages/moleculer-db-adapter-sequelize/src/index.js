@@ -1,12 +1,13 @@
 /*
  * moleculer-db-adapter-sequelize
- * Copyright (c) 2017 MoleculerJS (https://github.com/moleculerjs/moleculer-db)
+ * Copyright (c) 2019 MoleculerJS (https://github.com/moleculerjs/moleculer-db)
  * MIT Licensed
  */
 
 "use strict";
 
 const _ 		= require("lodash");
+const { ServiceSchemaError } = require("moleculer").Errors;
 const Promise	= require("bluebird");
 const Sequelize = require("sequelize");
 const Op = Sequelize.Op;
@@ -21,7 +22,6 @@ class SequelizeDbAdapter {
 	 */
 	constructor(...opts) {
 		this.opts = opts;
-		//mongoose.Promise = Promise;
 	}
 
 	/**
@@ -38,7 +38,7 @@ class SequelizeDbAdapter {
 
 		if (!this.service.schema.model) {
 			/* istanbul ignore next */
-			throw new Error("Missing `model` definition in schema of service!");
+			throw new ServiceSchemaError("Missing `model` definition in schema of service!");
 		}
 	}
 
@@ -50,13 +50,18 @@ class SequelizeDbAdapter {
 	 * @memberof SequelizeDbAdapter
 	 */
 	connect() {
-		this.db = new Sequelize(...this.opts);
+		const sequelizeInstance = this.opts[0];
+
+		if (sequelizeInstance && sequelizeInstance instanceof Sequelize)
+			this.db = sequelizeInstance;
+		else
+			this.db = new Sequelize(...this.opts);
 
 		return this.db.authenticate().then(() => {
 
 			let modelDefinitionOrInstance = this.service.schema.model;
 			let modelReadyPromise;
-			let isModelInstance = modelDefinitionOrInstance && modelDefinitionOrInstance.hasOwnProperty("attributes");
+			let isModelInstance = modelDefinitionOrInstance && Object.prototype.hasOwnProperty.call(modelDefinitionOrInstance, "attributes");
 			if (isModelInstance){
 				this.model = modelDefinitionOrInstance;
 				modelReadyPromise = Promise.resolve();
@@ -65,7 +70,10 @@ class SequelizeDbAdapter {
 				modelReadyPromise  = this.model.sync();
 			}
 			this.service.model = this.model;
-			return modelReadyPromise ;
+
+			return modelReadyPromise.then(() => {
+				this.service.logger.info("Sequelize adapter has connected successfully.");
+			});
 		});
 	}
 
@@ -78,8 +86,9 @@ class SequelizeDbAdapter {
 	 */
 	disconnect() {
 		if (this.db) {
-			this.db.close();
+			return this.db.close();
 		}
+		/* istanbul ignore next */
 		return Promise.resolve();
 	}
 
@@ -182,7 +191,7 @@ class SequelizeDbAdapter {
 	 * @memberof SequelizeDbAdapter
 	 */
 	insertMany(entities) {
-		return Promise.all(entities.map(e => this.model.create(e)));
+		return this.model.bulkCreate(entities);
 	}
 
 	/**
@@ -209,7 +218,7 @@ class SequelizeDbAdapter {
 	 */
 	updateById(_id, update) {
 		return this.findById(_id).then(entity => {
-			return entity.update(update["$set"]);
+			return entity && entity.update(update["$set"]);
 		});
 	}
 
@@ -235,7 +244,7 @@ class SequelizeDbAdapter {
 	 */
 	removeById(_id) {
 		return this.findById(_id).then(entity => {
-			return entity.destroy().then(() => entity);
+			return entity && entity.destroy().then(() => entity);
 		});
 	}
 
