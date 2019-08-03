@@ -350,6 +350,33 @@ class MongooseDbAdapter {
 		return this.model.find();
 	}
 
+		/**
+	 * Convert hex string to ObjectID
+	 *
+	 * @param {String} id
+	 * @returns {ObjectID}
+	 *
+	 * @memberof MongoDbAdapter
+	 */
+	stringToObjectID(id) {
+		if (typeof id == "string" && mongoose.Types.ObjectId.isValid(id))
+			return new mongoose.Schema.Types.ObjectId(id);
+
+		return id;
+	}
+
+	/**
+	 * Convert ObjectID to Hex string
+	 *
+	 * @param {ObjectID} id
+	 * @returns {String}
+	 *
+	 * @memberof MongoDbAdapter
+	 */
+	objectIDToString(id) {
+		return id.toString();
+	}
+
 	/**
 	* Transforms 'idField' into MongoDB's '_id'
 	* @param {Object} entity
