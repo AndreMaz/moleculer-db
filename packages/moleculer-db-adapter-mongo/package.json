@@ -1,6 +1,6 @@
 {
   "name": "moleculer-db-adapter-mongo",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "MongoDB native adapter for Moleculer DB service.",
   "main": "index.js",
   "scripts": {
@@ -49,6 +49,7 @@
     "node": ">= 8.x.x"
   },
   "dependencies": {
+    "fakerator": "0.3.0",
     "mongodb": "^3.2.7"
   }
 }
