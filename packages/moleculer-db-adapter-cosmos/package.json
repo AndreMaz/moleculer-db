@@ -14,7 +14,11 @@
   },
   "keywords": [
     "microservice",
-    "moleculer"
+    "moleculer",
+    "microsoft",
+    "cosmos",
+    "cosmosDB",
+    "@azure/cosmos"
   ],
   "repository": {
     "type": "git",

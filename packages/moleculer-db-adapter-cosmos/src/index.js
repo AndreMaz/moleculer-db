@@ -84,86 +84,130 @@ class CosmosDbAdapter {
 	 *
 	 * @memberof CosmosDbAdapter
 	 */
-	async disconnect() {
-		// ToDo: gracefully close connection with DB
-
+	disconnect() {
 		return Promise.resolve();
 	}
 
 	find(filters) {
-		throw new Error("Method Not Implemented");
+		// throw new Error("Method Not Implemented");
+		return this.createCursor(filters);
 	}
 
 	findOne(query) {
-		throw new Error("Method Not Implemented");
+		throw new Error("Method `findOne` Not Implemented");
 	}
 
-	findById(_id) {
-		throw new Error("Method Not Implemented");
+	async findById(_id) {
+		// throw new Error("Method `findById` Not Implemented");
+		try {
+			const readResponse = await this.container.item(_id).read();
+			if (readResponse.statusCode === 404) return;
+
+			return response.resource;
+		} catch (error) {
+			throw error;
+		}
 	}
 
-	findByIds(idList) {
-		throw new Error("Method Not Implemented");
+	/**
+	 *
+	 * @param {Array} idList
+	 */
+	async findByIds(idList) {
+		// throw new Error("Method `findByIds` Not Implemented");
+		const ids = idList.map(elem => `"${elem}"`).join(",");
+
+		const q = {
+			query: `SELECT * FROM c WHERE c.id IN (${ids})`,
+			parameters: []
+		};
+
+		const response = await this.container.items.query(q).fetchAll();
+		return response.resources;
 	}
 
 	count(filters = {}) {
-		throw new Error("Method Not Implemented");
+		throw new Error("Method `count` Not Implemented");
 	}
 
-	insert(entity) {
-		throw new Error("Method Not Implemented");
+	async insert(entity) {
+		try {
+			const response = await this.container.items.create(entity);
+			return response.resource;
+		} catch (error) {
+			throw error;
+		}
 	}
 
 	insertMany(entities) {
-		throw new Error("Method Not Implemented");
+		throw new Error("Method `insertMany` Not Implemented");
 	}
 
 	updateMany(query, update) {
-		throw new Error("Method Not Implemented");
+		throw new Error("Method `updateMany` Not Implemented");
 	}
 
 	updateById(_id, update) {
-		throw new Error("Method Not Implemented");
+		throw new Error("Method `updateById` Not Implemented");
 	}
 
 	removeMany(query) {
-		throw new Error("Method Not Implemented");
+		throw new Error("Method `removeMany` Not Implemented");
 	}
 
-	removeById(_id) {
-		throw new Error("Method Not Implemented");
+	async removeById(_id) {
+		try {
+			const readResponse = await this.container.item(_id).read();
+			if (readResponse.statusCode === 404) return;
+
+			const delResponse = await this.container.item(_id).delete();
+			if (delResponse.statusCode === 404) return;
+
+			return response.resource;
+		} catch (error) {
+			throw error;
+		}
 	}
 
 	clear() {
-		throw new Error("Method Not Implemented");
+		throw new Error("Method `clear` Not Implemented");
 	}
 
 	entityToObject(entity) {
-		throw new Error("Method Not Implemented");
+		// throw new Error("Method Not Implemented");
+		return entity;
 	}
 
-	createCursor(params, isCounting) {
-		throw new Error("Method Not Implemented");
+	async createCursor(params = {}, isCounting) {
+		const q = {
+			query: params.query || "SELECT * from c", // By default get everything
+			parameters: []
+		};
+
+		const response = await this.container.items.query(q).fetchAll();
+		return response.resources;
 	}
 
 	transformSort(paramSort) {
-		throw new Error("Method Not Implemented");
+		throw new Error("Method `transformSort` Not Implemented");
 	}
 
 	stringToObjectID(id) {
-		throw new Error("Method Not Implemented");
+		throw new Error("Method `stringToObjectID` Not Implemented");
 	}
 
 	objectIDToString(id) {
-		throw new Error("Method Not Implemented");
+		throw new Error("Method `objectIDToString` Not Implemented");
 	}
 
 	beforeSaveTransformID(entity, idField) {
-		throw new Error("Method Not Implemented");
+		return entity;
+		// throw new Error("Method `beforeSaveTransformID` Not Implemented");
 	}
 
 	afterRetrieveTransformID(entity, idField) {
-		throw new Error("Method Not Implemented");
+		// throw new Error("Method Not Implemented");
+		return entity;
 	}
 }
 
