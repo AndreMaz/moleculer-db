@@ -6,8 +6,8 @@ let StoreService = require("../../../moleculer-db/index");
 let CosmosDbAdapter = require("../../index");
 const connectOpt = require("../../../../../connectOpt");
 
-const dbName = { id: "sample database" };
-const containerName = { id: "sample collection" };
+const dbName = "sample database";
+const containerName = "sample collection";
 
 // Create broker
 let broker = new ServiceBroker({
@@ -29,14 +29,16 @@ broker.createService(StoreService, {
 		});
 		console.log(insertResponse);
 		*/
-		// let res = await this.adapter.find();
+		let result = await this.adapter.find();
 		// console.log(res);
 		// let idList = ["5b774410-0141-4964-8178-f4deb38cea08", "f13847a7-ff51-4be6-b782-a596b7af6ca5"]
 		// this.adapter.findByIds(idList);
 
+		/*
 		let entries = ["f13847a7-ff51-4be6-b782-a596b7af6ca5"];
 
 		let result = await this.adapter.clear(entries);
+		*/
 		console.log(result);
 	}
 });

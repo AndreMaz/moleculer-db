@@ -15,7 +15,8 @@ class CosmosDbAdapter {
 	/**
 	 * Creates an instance of CosmosDbAdapter.
 	 * @param {Object} connection
-	 * @param {Object} opts
+	 * @param {string} dbName
+	 * @param {string} containerName
 	 *
 	 * @memberof CosmosDbAdapter
 	 */
@@ -63,13 +64,13 @@ class CosmosDbAdapter {
 		try {
 			this.client = new CosmosClient(this.connection);
 
-			const dbResponse = await this.client.databases.createIfNotExists(
-				this.dbName
-			);
+			const dbResponse = await this.client.databases.createIfNotExists({
+				id: this.dbName
+			});
 			this.database = dbResponse.database;
 
 			const containerResponse = await this.database.containers.createIfNotExists(
-				this.containerName
+				{ id: this.containerName }
 			);
 			this.container = containerResponse.container;
 
@@ -88,7 +89,7 @@ class CosmosDbAdapter {
 	 */
 	disconnect() {
 		// We are making REST requests so just resolve
-		return Promise.resolve();
+		return Promise.resolve("Disconnected");
 	}
 
 	/**
