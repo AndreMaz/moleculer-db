@@ -142,7 +142,7 @@ class CosmosDbAdapter {
 			const readResponse = await this.container.item(_id).read();
 			if (readResponse.statusCode === 404) return;
 
-			return response.resource;
+			return readResponse.resource;
 		} catch (error) {
 			throw error;
 		}
