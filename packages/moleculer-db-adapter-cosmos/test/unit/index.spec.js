@@ -83,12 +83,12 @@ describe("Test CosmosStoreAdapter", () => {
 		expect(adapter.afterRetrieveTransformID).toBeInstanceOf(Function);
 	});
 
-	it("call init", () => {
+	it("should init", () => {
 		expect(adapter.broker).toBe(broker);
 		expect(adapter.service).toBe(service);
 	});
 
-	it("call connect", async () => {
+	it("should connect", async () => {
 		try {
 			await adapter.connect();
 			expect(adapter.database).toBeDefined();
@@ -98,7 +98,7 @@ describe("Test CosmosStoreAdapter", () => {
 		}
 	});
 
-	it("call disconnect", () => {
+	it("should disconnect", () => {
 		return adapter.disconnect().then(res => {
 			expect(res).toBe("Disconnected");
 		});
@@ -126,10 +126,28 @@ describe("Test CosmosStoreAdapter", () => {
 		});
 	});
 
+	it("should NOT `insert` repeated entry", () => {
+		return adapter.insert(dummyEntries[0]).catch(err => {
+			expect(err).toBeInstanceOf(Error);
+			expect(err.message).toBe(
+				"Resource with specified id or name already exists."
+			);
+		});
+	});
+
 	it("should `findById` an entry", () => {
 		return adapter.findById(dummyEntries[0].id).then(res => {
 			expect(res.id).toBe(dummyEntries[0].id);
 			expect(res.test).toBe(dummyEntries[0].test);
+		});
+	});
+
+	it("should NOT `findById`", () => {
+		const id = "wrong-id";
+		return adapter.findById(id).catch(err => {
+			// console.log(err);
+			expect(err).toBeInstanceOf(Error);
+			expect(err.message).toBe(`Resource with ${id} not found`);
 		});
 	});
 
@@ -140,9 +158,50 @@ describe("Test CosmosStoreAdapter", () => {
 		});
 	});
 
+	it("should NOT `delete`", () => {
+		const id = "wrong-id";
+		return adapter.removeById(id).catch(err => {
+			expect(err).toBeInstanceOf(Error);
+			expect(err.message).toBe(`Resource with ${id} not found`);
+		});
+	});
+
 	it("should `insertMany` 3 entries", () => {
 		return adapter.insertMany(dummyEntries).then(response => {
 			expect(response.length).toBe(3);
+		});
+	});
+
+	it("should NOT `insertMany`", () => {
+		return adapter.insertMany(dummyEntries).catch(err => {
+			expect(err).toBeInstanceOf(Error);
+			expect(err.message).toBe(
+				"Resource with specified id or name already exists."
+			);
+		});
+	});
+
+	it("should `findByIds` 3 entries", () => {
+		const idList = dummyEntries.map(elem => elem.id);
+
+		return adapter.findByIds(idList).then(res => {
+			expect(res.length).toBe(3);
+		});
+	});
+
+	it("should `findOne` by query", () => {
+		const q = `SELECT * FROM c WHERE c.test = "two"`;
+
+		return adapter.findOne(q).then(res => {
+			expect(res[0].test).toBe("two");
+		});
+	});
+
+	it("should NOT `findOne` due to BAD query", () => {
+		const q = `SELECT * FROM c WHER"`;
+
+		return adapter.findOne(q).catch(err => {
+			expect(err).toBeInstanceOf(Error);
 		});
 	});
 
@@ -167,9 +226,22 @@ describe("Test CosmosStoreAdapter", () => {
 		});
 	});
 
-	it("should `updateMany` entries", () => {
-		const id = dummyEntries[0].id;
+	it("should NOT `updateById` an entry", () => {
+		const id = "wrong-id";
 
+		const update = {
+			$set: {
+				test: "UPDATED TEST"
+			}
+		};
+
+		return adapter.updateById(id, update).catch(err => {
+			expect(err).toBeInstanceOf(Error);
+			expect(err.code).toBe(404);
+		});
+	});
+
+	it("should `updateMany` entries", () => {
 		const updatedEntries = dummyEntries.map(entry => {
 			entry.test = "UPDATE";
 
@@ -184,16 +256,26 @@ describe("Test CosmosStoreAdapter", () => {
 		});
 	});
 
-	it("should `removeById` an entry", () => {
-		const id = dummyEntries[0].id;
+	it("should NOT `updateMany` entries", () => {
+		const updatedEntries = dummyEntries.map(entry => entry);
+		updatedEntries[0].id = "wrong-0";
 
-		return adapter.removeById(id).then(res => {
-			expect(res.id).toBe(id);
-			expect(res.test).toBe(dummyEntries[0].test);
+		return adapter.updateMany(updatedEntries).catch(err => {
+			expect(err).toBeInstanceOf(Error);
+			expect(err.code).toBe(404);
 		});
 	});
 
 	it("should `removeById` an entry", () => {
+		const id = "1";
+
+		return adapter.removeById(id).then(res => {
+			expect(res.id).toBe(id);
+			expect(res.test).toBe("UPDATE");
+		});
+	});
+
+	it("should `removeByIds` two entries", () => {
 		const idList = [dummyEntries[1].id, dummyEntries[2].id];
 
 		return adapter.removeMany(idList).then(res => {

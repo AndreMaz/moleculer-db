@@ -118,11 +118,9 @@ class CosmosDbAdapter {
 	async findOne(query) {
 		// throw new Error("Method `findOne` Not Implemented");
 		try {
-			const response = await this.container.items.query(query).fetchAll;
+			const response = await this.container.items.query(query).fetchAll();
 
-			if (response.statusCode > 400) return;
-
-			return response.resource;
+			return response.resources;
 		} catch (error) {
 			throw error;
 		}
@@ -140,7 +138,10 @@ class CosmosDbAdapter {
 		// throw new Error("Method `findById` Not Implemented");
 		try {
 			const readResponse = await this.container.item(_id).read();
-			if (readResponse.statusCode === 404) return;
+
+			if (readResponse.statusCode >= 400) {
+				throw new Error(`Resource with ${_id} not found`);
+			}
 
 			return readResponse.resource;
 		} catch (error) {
@@ -246,8 +247,6 @@ class CosmosDbAdapter {
 
 			const response = await this.container.item(_id).replace(newItem);
 
-			if (response.statusCode >= 400) return;
-
 			return response.resource;
 		} catch (error) {
 			throw error;
@@ -294,10 +293,15 @@ class CosmosDbAdapter {
 	async removeById(_id) {
 		try {
 			const readResponse = await this.container.item(_id).read();
-			if (readResponse.statusCode === 404) return;
+
+			if (readResponse.statusCode >= 400) {
+				throw new Error(`Resource with ${_id} not found`);
+			}
 
 			const delResponse = await this.container.item(_id).delete();
-			if (delResponse.statusCode === 404) return;
+			if (delResponse.statusCode >= 400) {
+				throw new Error(`Resource with ${_id} not found`);
+			}
 
 			return readResponse.resource;
 		} catch (error) {
