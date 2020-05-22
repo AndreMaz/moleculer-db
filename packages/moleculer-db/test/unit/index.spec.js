@@ -126,6 +126,30 @@ describe("Test DbService actions", () => {
 		}).catch(protectReject);
 	});
 
+	it("should call the 'getById' method with single ID, and should convert the result to object", () => {
+		service.transformDocuments.mockClear();
+		const p = { id: 5, fields: false, mapping: true };
+
+		let docs = { _id: 5, name: "John" };
+		service.getById = jest.fn(() => Promise.resolve(docs));
+
+		return broker.call("store.get", p).then(res => {
+			expect(res).toEqual({
+				"5": {
+					"_id": 5,
+					"name": "John"
+				}
+			});
+
+			expect(service.getById).toHaveBeenCalledTimes(1);
+			expect(service.getById).toHaveBeenCalledWith(5, true);
+
+			expect(service.transformDocuments).toHaveBeenCalledTimes(1);
+			expect(service.transformDocuments).toHaveBeenCalledWith(jasmine.any(Context), p, docs);
+
+		}).catch(protectReject);
+	});
+
 	it("should call the 'disconnect' method", () => {
 		service.disconnect = jest.fn();
 
@@ -374,6 +398,11 @@ describe("Test sanitizeParams method", () => {
 	it("should convert searchFields to array", () => {
 		const res = service.sanitizeParams(ctx, { searchFields: "name votes author" });
 		expect(res).toEqual({ searchFields: ["name", "votes", "author"] });
+	});
+
+	it("should parse query to object", () => {
+		const res = service.sanitizeParams(ctx, { query: '{"name": "moleculer" }' });
+		expect(res).toEqual({ query: { name: "moleculer"} });
 	});
 
 	it("should fill pagination fields", () => {
@@ -650,6 +679,7 @@ describe("Test populateDocs method", () => {
 		adapter: mockAdapter,
 		settings: {
 			populates: {
+				"likes.users": "users.get",
 				"comments": "comments.get",
 				"author": {
 					action: "users.get",
@@ -794,6 +824,32 @@ describe("Test populateDocs method", () => {
 
 			expect(res).toEqual({ author: { name: "Jane" } });
 
+		}).catch(protectReject);
+	});
+
+	it("should call 'populateDocs' with single doc & only likes.users population", () => {
+		const ctx = { params: {} };
+		ctx.call = jest.fn(() => Promise.resolve({
+			"3": {
+				"name": "Walter"
+			},
+			"5": {
+				"name": "John"
+			},
+			"8": {
+				"name": "Jane"
+			}
+		}));
+		const doc = { id: 4, likes: { users: [8, 3], shared: 4 } };
+
+		return service.populateDocs(ctx, doc, ["likes.users"]).then(res => {
+			expect(res).toEqual({
+				id: 4,
+				likes: {
+					users: [{ name: "Jane" }, { name: "Walter" }],
+					shared: 4,
+				},
+			});
 		}).catch(protectReject);
 	});
 

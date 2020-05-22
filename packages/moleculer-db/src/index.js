@@ -106,7 +106,10 @@ module.exports = {
 					{ type: "string", optional: true },
 					{ type: "array", optional: true, items: "string" },
 				],
-				query: { type: "object", optional: true }
+				query: [
+					{ type: "object", optional: true },
+					{ type: "string", optional: true },
+				],
 			},
 			handler(ctx) {
 				let params = this.sanitizeParams(ctx, ctx.params);
@@ -136,7 +139,10 @@ module.exports = {
 					{ type: "string", optional: true },
 					{ type: "array", optional: true, items: "string" },
 				],
-				query: { type: "object", optional: true }
+				query: [
+					{ type: "object", optional: true },
+					{ type: "string", optional: true },
+				],
 			},
 			handler(ctx) {
 				let params = this.sanitizeParams(ctx, ctx.params);
@@ -183,7 +189,10 @@ module.exports = {
 					{ type: "string", optional: true },
 					{ type: "array", optional: true, items: "string" },
 				],
-				query: { type: "object", optional: true }
+				query: [
+					{ type: "object", optional: true },
+					{ type: "string", optional: true },
+				],
 			},
 			handler(ctx) {
 				let params = this.sanitizeParams(ctx, ctx.params);
@@ -364,6 +373,9 @@ module.exports = {
 				p.page = Number(p.page);
 			if (typeof(p.pageSize) === "string")
 				p.pageSize = Number(p.pageSize);
+			// Convert from string to POJO
+			if (typeof(p.query) === "string")
+				p.query = JSON.parse(p.query);
 
 			if (typeof(p.sort) === "string")
 				p.sort = p.sort.replace(/,/g, " ").split(" ");
@@ -607,16 +619,16 @@ module.exports = {
 				let arr = Array.isArray(docs) ? docs : [docs];
 
 				// Collect IDs from field of docs (flatten, compact & unique list)
-				let idList = _.uniq(_.flattenDeep(_.compact(arr.map(doc => doc[field]))));
+				let idList = _.uniq(_.flattenDeep(_.compact(arr.map(doc => _.get(doc, field)))));
 				// Replace the received models according to IDs in the original docs
 				const resultTransform = (populatedDocs) => {
 					arr.forEach(doc => {
-						let id = doc[field];
+						let id = _.get(doc, field);
 						if (_.isArray(id)) {
 							let models = _.compact(id.map(id => populatedDocs[id]));
-							doc[field] = models;
+							_.set(doc, field, models);
 						} else {
-							doc[field] = populatedDocs[id];
+							_.set(doc, field, populatedDocs[id]);
 						}
 					});
 				};
@@ -800,7 +812,7 @@ module.exports = {
 					}
 					return Promise.reject(new MoleculerClientError("Invalid request! The 'params' must contain 'entity' or 'entities'!", 400));
 				})
-				.then(docs => this.transformDocuments(ctx, params, docs))
+				.then(docs => this.transformDocuments(ctx, {}, docs))
 				.then(json => this.entityChanged("created", json, ctx).then(() => json));
 		},
 
@@ -834,6 +846,11 @@ module.exports = {
 							res[id] = doc;
 						});
 						return res;
+					} else if (_.isObject(json) && params.mapping === true) {
+						let res = {};
+						const id = origDoc[this.settings.idField];
+						res[id] = json;
+						return res;
 					}
 					return json;
 				});
@@ -865,7 +882,7 @@ module.exports = {
 				.then(doc => {
 					if (!doc)
 						return Promise.reject(new EntityNotFoundError(id));
-					return this.transformDocuments(ctx, params, doc)
+					return this.transformDocuments(ctx, {}, doc)
 						.then(json => this.entityChanged("updated", json, ctx).then(() => json));
 				});
 		},
@@ -886,7 +903,7 @@ module.exports = {
 				.then(doc => {
 					if (!doc)
 						return Promise.reject(new EntityNotFoundError(params.id));
-					return this.transformDocuments(ctx, params, doc)
+					return this.transformDocuments(ctx, {}, doc)
 						.then(json => this.entityChanged("removed", json, ctx).then(() => json));
 				});
 		}

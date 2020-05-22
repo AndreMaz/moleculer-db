@@ -1,4 +1,25 @@
 --------------------------------------------------
+<a name="0.8.7"></a>
+# 0.8.7 (2020-04-08)
+
+## Changes
+- fix mapping in `get` action with simple ID. [#176](https://github.com/moleculerjs/moleculer-db/pull/176)
+- 
+--------------------------------------------------
+<a name="0.8.5"></a>
+# 0.8.5 (2020-02-06)
+
+## Changes
+- fix `fields` property issue in `update` action. [#152](https://github.com/moleculerjs/moleculer-db/pull/152)
+
+--------------------------------------------------
+<a name="0.8.4"></a>
+# 0.8.4 (2019-11-19)
+
+## Changes
+- parsing `query` string property in `find` & `list` actions by [@jjgumucio](https://github.com/jjgumucio). PR [#149](https://github.com/moleculerjs/moleculer-db/pull/149)
+
+--------------------------------------------------
 <a name="0.8.1"></a>
 # 0.8.1 (2019-07-07)
 
