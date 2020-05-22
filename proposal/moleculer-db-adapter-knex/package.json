@@ -30,7 +30,7 @@
   "devDependencies": {
     "benchmarkify": "2.1.0",
     "coveralls": "2.13.1",
-    "eslint": "4.3.0",
+    "eslint": "6.6.0",
     "jest": "20.0.4",
     "jest-cli": "20.0.4",
     "lolex": "2.1.2",
@@ -51,6 +51,6 @@
     "node": ">= 6.x.x"
   },
   "dependencies": {
-    "knex": "0.13.0"
+    "knex": "0.19.5"
   }
 }
