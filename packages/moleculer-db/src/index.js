@@ -8,6 +8,7 @@
 
 const _ = require("lodash");
 const Promise = require("bluebird");
+const { flatten } = require("flat");
 const { MoleculerClientError, ValidationError } = require("moleculer").Errors;
 const { EntityNotFoundError } = require("./errors");
 const MemoryAdapter = require("./memory-adapter");
@@ -61,7 +62,10 @@ module.exports = {
 		maxLimit: -1,
 
 		/** @type {Object|Function} Validator schema or a function to validate the incoming entity in `create` & 'insert' actions. */
-		entityValidator: null
+		entityValidator: null,
+
+		/** @type {Boolean} Whether to use dot notation or not when updating an entity. Will **not** convert Array to dot notation. Default: `false` */
+		useDotNotation: false,
 	},
 
 	/**
@@ -614,16 +618,17 @@ module.exports = {
 						action: rule
 					};
 				}
-				rule.field = field;
+
+				if (rule.field === undefined) rule.field = field;
 
 				let arr = Array.isArray(docs) ? docs : [docs];
 
 				// Collect IDs from field of docs (flatten, compact & unique list)
-				let idList = _.uniq(_.flattenDeep(_.compact(arr.map(doc => _.get(doc, field)))));
+				let idList = _.uniq(_.flattenDeep(_.compact(arr.map(doc => _.get(doc, rule.field)))));
 				// Replace the received models according to IDs in the original docs
 				const resultTransform = (populatedDocs) => {
 					arr.forEach(doc => {
-						let id = _.get(doc, field);
+						let id = _.get(doc, rule.field);
 						if (_.isArray(id)) {
 							let models = _.compact(id.map(id => populatedDocs[id]));
 							_.set(doc, field, models);
@@ -737,6 +742,12 @@ module.exports = {
 				countParams.limit = null;
 			if (countParams && countParams.offset)
 				countParams.offset = null;
+			if (params.limit == null) {
+				if (this.settings.limit > 0 && params.pageSize > this.settings.limit)
+					params.limit = this.settings.limit;
+				else
+					params.limit = params.pageSize;
+			}
 			return Promise.all([
 				// Get rows
 				this.adapter.find(params),
@@ -878,6 +889,10 @@ module.exports = {
 				else
 					sets[prop] = params[prop];
 			});
+
+			if (this.settings.useDotNotation)
+				sets = flatten(sets, { safe: true });
+
 			return this.adapter.updateById(id, { "$set": sets })
 				.then(doc => {
 					if (!doc)

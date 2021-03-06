@@ -128,6 +128,19 @@ describe("Test SequelizeAdapter", () => {
 			});
 		});
 
+		it("should disconnect after connection error", () => {
+			let hasThrown = true;
+			model.sync.mockImplementationOnce(() => Promise.reject());
+			return adapter.connect()
+				.then(() => {
+					hasThrown = false;
+				})
+				.catch(() => {
+					expect(hasThrown).toBe(true);
+					expect(adapter.db.close).toBeCalledTimes(1);
+				});
+		});
+
 		it("call disconnect", () => {
 			adapter.db.close.mockClear();
 
@@ -213,9 +226,12 @@ describe("Test SequelizeAdapter", () => {
 				});
 			});
 
-			it("call with full-text search", () => {
+			it("call with full-text search without query", () => {
 				adapter.model.findAll.mockClear();
-				adapter.createCursor({ search: "walter", searchFields: ["title", "content"] });
+				adapter.createCursor({
+					search: "walter",
+					searchFields: ["title", "content"]
+				});
 				expect(adapter.model.findAll).toHaveBeenCalledTimes(1);
 				expect(adapter.model.findAll).toHaveBeenCalledWith({
 					where: {
@@ -230,6 +246,73 @@ describe("Test SequelizeAdapter", () => {
 									[Op.like]: "%walter%"
 								}
 							}
+						]
+					}
+				});
+			});
+
+			it("call with full-text search with query", () => {
+				adapter.model.findAll.mockClear();
+				adapter.createCursor({
+					query: { status: 1 },
+					search: "walter",
+					searchFields: ["title", "content"]
+				});
+				expect(adapter.model.findAll).toHaveBeenCalledTimes(1);
+				expect(adapter.model.findAll).toHaveBeenCalledWith({
+					where: {
+						[Op.and]: [
+							{ status: 1 },
+							{ [Op.or]: [
+								{
+									title: {
+										[Op.like]: "%walter%"
+									}
+								},
+								{
+									content: {
+										[Op.like]: "%walter%"
+									}
+								}
+							]
+							}
+						]
+					}
+				});
+			});
+
+			it("call with full-text search & advanced query", () => {
+				adapter.model.findAll.mockClear();
+				adapter.createCursor({
+					query: {
+						[Op.or]: [
+							{ status: 1 },
+							{ deleted: 0 }
+						]
+					},
+					search: "walter",
+					searchFields: ["title", "content"]
+				});
+				expect(adapter.model.findAll).toHaveBeenCalledTimes(1);
+				expect(adapter.model.findAll).toHaveBeenCalledWith({
+					where: {
+						[Op.and]: [
+							{ [Op.or]: [
+								{ status: 1 },
+								{ deleted: 0 },
+							] },
+							{ [Op.or]: [
+								{
+									title: {
+										[Op.like]: "%walter%"
+									}
+								},
+								{
+									content: {
+										[Op.like]: "%walter%"
+									}
+								}
+							] }
 						]
 					}
 				});
@@ -301,6 +384,17 @@ describe("Test SequelizeAdapter", () => {
 			return adapter.insertMany(entities).catch(protectReject).then(() => {
 				expect(adapter.model.bulkCreate).toHaveBeenCalledTimes(1);
 				expect(adapter.model.bulkCreate).toHaveBeenCalledWith(entities, { returning: true });
+			});
+		});
+		
+		it("call inserts with option param", () => {
+			adapter.model.create.mockClear();
+			let entities = [{ name: "John" }, { name: "Jane" }];
+			let opts = { ignoreDuplicates: true, returning: false };
+			
+			return adapter.insertMany(entities, opts).catch(protectReject).then(() => {
+				expect(adapter.model.bulkCreate).toHaveBeenCalledTimes(2);
+				expect(adapter.model.bulkCreate).toHaveBeenCalledWith(entities, opts);
 			});
 		});
 
@@ -443,6 +537,7 @@ describe("Test SequelizeAdapter", () => {
 			return adapter.connect().catch(protectReject).then(() => {
 				expect(Sequelize).toHaveBeenCalledTimes(1);
 				expect(Sequelize).toHaveBeenCalledWith(opts);
+				expect(adapter.db).toBe(opts);
 				expect(adapter.db).toBe(db);
 				expect(adapter.db.authenticate).toHaveBeenCalledTimes(1);
 				expect(adapter.db.define).toHaveBeenCalledTimes(0);

@@ -1,9 +1,31 @@
+<a name="0.8.9"></a>
+# 0.8.9 (2020-11-16)
+
+## Changes
+fix mongoose stuck after `broker.stop` [#233](https://github.com/moleculerjs/moleculer-db/pull/233)
+
+--------------------------------------------------
+<a name="0.8.8"></a>
+# 0.8.8 (2020-09-27)
+
+## Changes
+fix connection error if there is more than one service [#222](https://github.com/moleculerjs/moleculer-db/pull/222)
+
+--------------------------------------------------
+<a name="0.8.6"></a>
+# 0.8.6 (2020-06-18)
+
+## Changes
+Add support for searchFields parameter [#197](https://github.com/moleculerjs/moleculer-db/pull/197)
+
+--------------------------------------------------
 <a name="0.8.0"></a>
 # 0.8.0 (2019-07-07)
 
 ## Changes
 Mongoose connection logic has been changed. No need to update existing codes.
 
+--------------------------------------------------
 <a name="0.7.0"></a>
 # 0.7.0 (2018-04-08)
 

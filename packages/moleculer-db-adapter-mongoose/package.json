@@ -1,6 +1,6 @@
 {
   "name": "moleculer-db-adapter-mongoose",
-  "version": "0.8.4",
+  "version": "0.8.9",
   "description": "Mongoose adapter for Moleculer DB service",
   "main": "index.js",
   "types": "index.d.ts",
@@ -29,15 +29,15 @@
   },
   "devDependencies": {
     "benchmarkify": "^2.1.2",
-    "coveralls": "^3.0.7",
-    "eslint": "^6.5.1",
-    "fakerator": "0.3.0",
-    "jest": "^24.9.0",
-    "jest-cli": "^24.9.0",
-    "lolex": "^5.0.1",
-    "moleculer": "^0.13.11",
-    "mongoose": "^5.7.4",
-    "nodemon": "^1.19.3",
+    "coveralls": "^3.1.0",
+    "eslint": "^7.10.0",
+    "fakerator": "^0.3.1",
+    "jest": "^26.4.2",
+    "jest-cli": "^26.4.2",
+    "lolex": "^6.0.0",
+    "moleculer": "^0.14.10",
+    "mongoose": "^5.10.7",
+    "nodemon": "^2.0.4",
     "npm-check": "^5.9.2"
   },
   "jest": {
@@ -51,7 +51,7 @@
     "node": ">= 8.x.x"
   },
   "dependencies": {
-    "bluebird": "^3.5.5",
-    "lodash": "^4.17.15"
+    "bluebird": "^3.7.2",
+    "lodash": "^4.17.20"
   }
 }

@@ -87,6 +87,9 @@ class SequelizeDbAdapter {
 
 			return modelReadyPromise.then(() => {
 				this.service.logger.info("Sequelize adapter has connected successfully.");
+			}).catch((e) => {
+				return this.db.close()
+					.finally(() => Promise.reject(e));
 			});
 		});
 	}
@@ -200,12 +203,13 @@ class SequelizeDbAdapter {
 	 * Insert many entities
 	 *
 	 * @param {Array} entities
+	 * @param {Object} opts
 	 * @returns {Promise}
 	 *
 	 * @memberof SequelizeDbAdapter
 	 */
-	insertMany(entities) {
-		return this.model.bulkCreate(entities, { returning: true });
+	insertMany(entities, opts = { returning: true }) {
+		return this.model.bulkCreate(entities, opts);
 	}
 
 	/**
@@ -306,7 +310,7 @@ class SequelizeDbAdapter {
 		}
 
 		const q = {
-			where: params.query || {}
+			where: {}
 		};
 
 		// Text search
@@ -316,15 +320,24 @@ class SequelizeDbAdapter {
 				fields = _.isString(params.searchFields) ? params.searchFields.split(" ") : params.searchFields;
 			}
 
-			q.where = {
-				[Op.or]: fields.map(f => {
-					return {
-						[f]: {
-							[Op.like]: "%" + params.search + "%"
-						}
-					};
-				})
-			};
+			const searchConditions = fields.map(f => {
+				return {
+					[f]: {
+						[Op.like]: "%" + params.search + "%"
+					}
+				};
+			});
+
+			if (params.query) {
+				q.where[Op.and] = [
+					params.query,
+					{ [Op.or]: searchConditions }
+				];
+			} else {
+				q.where[Op.or] = searchConditions;
+			}
+		} else if (params.query) {
+			Object.assign(q.where, params.query);
 		}
 
 		// Sort
